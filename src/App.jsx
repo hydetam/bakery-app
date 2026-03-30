@@ -315,7 +315,7 @@ function RecipeEditor({ recipe, cats, onSave, onCancel }) {
           <Fld label="基準數量"><div style={{display:"flex",gap:8,alignItems:"center"}}><input type="number" min="1" style={{...iCss,flex:1}} placeholder="1" value={f.baseQty} onChange={e=>set("baseQty",parseFloat(e.target.value)||1)}/><input style={{...iCss,width:72}} placeholder="顆" value={f.baseUnit} onChange={e=>set("baseUnit",e.target.value)}/></div><div style={{fontSize:11,color:P.muted,marginTop:4}}>下方食材是「做這個數量」的用量</div></Fld>
           <Fld label="耗損率 (%)"><input type="number" min="0" max="50" step="0.5" style={iCss} placeholder="0" value={f.wastePct} onChange={e=>set("wastePct",e.target.value)}/></Fld>
         </>:<>
-          <Fld label={f.mode==="total"?"每份成品總重 (g)":"每份麵粉用量 (g)"}><input type="number" min="1" style={iCss} placeholder={f.mode==="total"?"例：200":"例：80"} value={f.pieceWeight} onChange={e=>set("pieceWeight",e.target.value)}/><div style={{fontSize:11,color:P.muted,marginTop:4}}>{f.mode==="total"?"每顆成品的總麵糰重量":"每顆成品的總重量（如：每顆60g），系統自動反推麵粉量"}</div></Fld>
+          <Fld label={f.mode==="total"?"每份成品總重 (g)":"每份成品總重 (g)"}><input type="number" min="1" style={iCss} placeholder={f.mode==="total"?"例：200":"例：80"} value={f.pieceWeight} onChange={e=>set("pieceWeight",e.target.value)}/><div style={{fontSize:11,color:P.muted,marginTop:4}}>{f.mode==="total"?"每顆成品的總麵糰重量":"每顆成品的總重量（如：每顆60g），系統自動反推麵粉量"}</div></Fld>
           <Fld label="單位"><input style={iCss} placeholder="顆 / 個 / 條" value={f.baseUnit} onChange={e=>set("baseUnit",e.target.value)}/></Fld>
           <Fld label="耗損率 (%)"><input type="number" min="0" max="50" step="0.5" style={iCss} placeholder="0" value={f.wastePct} onChange={e=>set("wastePct",e.target.value)}/></Fld>
         </>}
