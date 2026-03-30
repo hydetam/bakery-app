@@ -132,8 +132,13 @@ function CalcView({ recipes }) {
       const totalG=(parseFloat(sel.pieceWeight)||0)*n*waste;
       rows=sel.ingredients.filter(i=>i.name).map(i=>{const p=parseFloat(i.pct);return{name:i.name,base:`${isNaN(p)?"—":p}%`,result:i.unit==="適量"?"適量":(isNaN(p)?"—":`${fmt(totalG*p/100)} g`)};});
     } else {
-      const flourTotal=(parseFloat(sel.pieceWeight)||0)*n*waste;
-      rows=sel.ingredients.filter(i=>i.name).map(i=>{const p=parseFloat(i.pct);return{name:i.name,base:`${isNaN(p)?"—":p}%`,result:i.unit==="適量"?"適量":(isNaN(p)?"—":`${fmt(flourTotal*p/100)} g`)};});
+      // 烘焙師比例：pieceWeight=每顆總重，反推麵粉量
+      // 總重 = pieceWeight × 數量 × 耗損
+      // 麵粉 = 總重 × 100 / 所有%加總
+      const totalDough = (parseFloat(sel.pieceWeight)||0) * n * waste;
+      const pctSum = sel.ingredients.filter(i=>i.name).reduce((a,i)=>{const p=parseFloat(i.pct);return a+(isNaN(p)?0:p);},0);
+      const flourG = pctSum > 0 ? totalDough * 100 / pctSum : 0;
+      rows=sel.ingredients.filter(i=>i.name).map(i=>{const p=parseFloat(i.pct);const g=isNaN(p)?null:flourG*p/100;return{name:i.name,base:`${isNaN(p)?"—":p}%`,result:i.unit==="適量"?"適量":(g===null?"—":`${fmt(g)} g`)};});
     }
     setResult({sel,qty:n,rows,waste,wastePct:sel.wastePct}); setStepsOpen(false);
   }
@@ -154,7 +159,7 @@ function CalcView({ recipes }) {
             ))}</div>}
         </CStep>}
         {sel&&<CStep n={3} label={`製作數量（${sel.baseUnit}）`} cls="fu">
-          {sel.mode!=="fixed"&&sel.pieceWeight&&<div style={{fontSize:12,color:P.muted,marginBottom:10,padding:"8px 12px",background:P.goldDim,borderRadius:7,lineHeight:1.5}}>{sel.mode==="total"?`每${sel.baseUnit}總重 ${sel.pieceWeight}g，各食材按比例分配`:`每${sel.baseUnit}麵粉 ${sel.pieceWeight}g，其他依烘焙師比例計算`}</div>}
+          {sel.mode!=="fixed"&&sel.pieceWeight&&<div style={{fontSize:12,color:P.muted,marginBottom:10,padding:"8px 12px",background:P.goldDim,borderRadius:7,lineHeight:1.5}}>{sel.mode==="total"?`每${sel.baseUnit}總重 ${sel.pieceWeight}g，各食材按比例分配`:`每${sel.baseUnit}總重 ${sel.pieceWeight}g，系統自動反推麵粉量再按烘焙師比例計算`}</div>}
           <div style={{display:"flex",gap:10,alignItems:"center"}}>
             <input type="number" min="1" style={{...iCss,fontSize:22,fontWeight:600,textAlign:"center",flex:1}} placeholder="例：25" value={qty} onChange={e=>{setQty(e.target.value);setResult(null);}} onKeyDown={e=>e.key==="Enter"&&calculate()}/>
             <span style={{color:P.muted,fontSize:15,whiteSpace:"nowrap"}}>{sel.baseUnit}</span>
@@ -283,7 +288,7 @@ function RecipeEditor({ recipe, cats, onSave, onCancel }) {
   const MODES=[
     {val:"fixed",label:"固定克數",desc:"直接填每份的克數（如：每顆可頌用高筋麵粉 80g、奶油 40g）"},
     {val:"total",label:"總量比例　所有食材合計 100%",desc:"填每份成品總重，各食材填佔總重的 %"},
-    {val:"baker",label:"烘焙師比例　麵粉 = 100%",desc:"填每份用的麵粉重量，其他食材填相對麵粉的 %"},
+    {val:"baker",label:"烘焙師比例　麵粉 = 100%",desc:"填每份成品的總重量（如：每顆60g），系統自動反推麵粉量，其他食材填相對麵粉的 %"},
   ];
   const pctSum=isRatio?f.ingredients.reduce((a,i)=>{const p=parseFloat(i.pct);return a+(isNaN(p)?0:p);},0):0;
 
@@ -310,7 +315,7 @@ function RecipeEditor({ recipe, cats, onSave, onCancel }) {
           <Fld label="基準數量"><div style={{display:"flex",gap:8,alignItems:"center"}}><input type="number" min="1" style={{...iCss,flex:1}} placeholder="1" value={f.baseQty} onChange={e=>set("baseQty",parseFloat(e.target.value)||1)}/><input style={{...iCss,width:72}} placeholder="顆" value={f.baseUnit} onChange={e=>set("baseUnit",e.target.value)}/></div><div style={{fontSize:11,color:P.muted,marginTop:4}}>下方食材是「做這個數量」的用量</div></Fld>
           <Fld label="耗損率 (%)"><input type="number" min="0" max="50" step="0.5" style={iCss} placeholder="0" value={f.wastePct} onChange={e=>set("wastePct",e.target.value)}/></Fld>
         </>:<>
-          <Fld label={f.mode==="total"?"每份成品總重 (g)":"每份麵粉用量 (g)"}><input type="number" min="1" style={iCss} placeholder={f.mode==="total"?"例：200":"例：80"} value={f.pieceWeight} onChange={e=>set("pieceWeight",e.target.value)}/><div style={{fontSize:11,color:P.muted,marginTop:4}}>{f.mode==="total"?"每顆成品的總麵糰重量":"每顆成品所使用的麵粉克數"}</div></Fld>
+          <Fld label={f.mode==="total"?"每份成品總重 (g)":"每份麵粉用量 (g)"}><input type="number" min="1" style={iCss} placeholder={f.mode==="total"?"例：200":"例：80"} value={f.pieceWeight} onChange={e=>set("pieceWeight",e.target.value)}/><div style={{fontSize:11,color:P.muted,marginTop:4}}>{f.mode==="total"?"每顆成品的總麵糰重量":"每顆成品的總重量（如：每顆60g），系統自動反推麵粉量"}</div></Fld>
           <Fld label="單位"><input style={iCss} placeholder="顆 / 個 / 條" value={f.baseUnit} onChange={e=>set("baseUnit",e.target.value)}/></Fld>
           <Fld label="耗損率 (%)"><input type="number" min="0" max="50" step="0.5" style={iCss} placeholder="0" value={f.wastePct} onChange={e=>set("wastePct",e.target.value)}/></Fld>
         </>}
