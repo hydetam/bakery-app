@@ -74,7 +74,7 @@ export default function App() {
       <style>{`*{box-sizing:border-box} input::placeholder,textarea::placeholder{color:${P.muted}} select option{background:#181410} ::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-thumb{background:${P.muted};border-radius:4px} @keyframes fu{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}} .fu{animation:fu .28s ease both} input[type=number]::-webkit-inner-spin-button{opacity:.35} @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}} .shake{animation:shake .35s ease}`}</style>
 
       <nav style={{ position:"sticky",top:0,zIndex:100,height:52,background:"rgba(13,12,9,.94)",backdropFilter:"blur(14px)",borderBottom:`1px solid ${P.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 18px" }}>
-        <span style={{ fontSize:15,fontWeight:700,color:P.goldLight,letterSpacing:".08em" }}>🍞 烘焙管理</span>
+        <span style={{ fontSize:15,fontWeight:700,color:P.goldLight,letterSpacing:".08em" }}>⚖️ 配方計算機</span>
         <div style={{ display:"flex",gap:2,alignItems:"center" }}>
           {saving&&<span style={{fontSize:11,color:P.muted,marginRight:8}}>儲存中…</span>}
           <button onClick={()=>setTab("calc")} style={{ padding:"6px 14px",border:"none",borderRadius:6,cursor:"pointer",fontFamily:"inherit",fontSize:12,background:tab==="calc"?P.gold:"transparent",color:tab==="calc"?"#120e00":P.muted,fontWeight:tab==="calc"?700:400,transition:"all .18s" }}>計算機</button>
@@ -97,7 +97,7 @@ function PasswordScreen({ input, setInput, error, onSubmit, onCancel }) {
   return (
     <div style={{ maxWidth:360,margin:"80px auto",padding:"0 20px",textAlign:"center" }}>
       <div style={{ fontSize:36,marginBottom:16 }}>🔒</div>
-      <h2 style={{ margin:"0 0 6px",fontSize:20,fontWeight:700,color:P.goldLight }}>食譜後台</h2>
+      <h2 style={{ margin:"0 0 6px",fontSize:20,fontWeight:700,color:P.goldLight }}>配方後台</h2>
       <p style={{ color:P.muted,fontSize:13,marginBottom:28 }}>請輸入管理員密碼</p>
       <div className={error?"shake":""} style={{ marginBottom:12 }}>
         <input type="password" style={{ ...iCss,fontSize:18,textAlign:"center",letterSpacing:".2em",borderColor:error?P.red:P.border }} placeholder="••••••••" value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&onSubmit()} autoFocus/>
@@ -146,7 +146,7 @@ function CalcView({ recipes }) {
   const modeTag={fixed:"固定克數",total:"總量比例",baker:"烘焙師%"};
   return (
     <div style={{maxWidth:540,margin:"0 auto",padding:"36px 18px 80px"}}>
-      <PageHeader sub="TODAY'S PRODUCTION" title="製作計算機"/>
+      <PageHeader sub="選擇配方開始計算" title="配方計算機"/>
       {recipes.length===0?<Empty icon="📋" text="尚無食譜" sub="請先至「食譜後台」建立食譜"/>:<>
         <CStep n={1} label="選擇類型"><div style={{display:"flex",flexWrap:"wrap",gap:8}}>{allCats.map(c=><Chip key={c} on={cat===c} onClick={()=>{setCat(c);setRid("");setQty("");setResult(null);}}>{c}</Chip>)}</div></CStep>
         {cat&&<CStep n={2} label="選擇品項" cls="fu">
@@ -172,8 +172,7 @@ function CalcView({ recipes }) {
             <div style={{fontSize:10,color:P.gold,letterSpacing:".2em",marginBottom:4}}>計算結果</div>
             <div style={{fontSize:18,fontWeight:700}}>{result.sel.name} × {result.qty} {result.sel.baseUnit}</div>
             <div style={{display:"flex",gap:14,marginTop:6,flexWrap:"wrap"}}>
-              {result.sel.ovenTemp&&<span style={{fontSize:11,color:P.muted}}>🌡 {result.sel.ovenTemp}°C</span>}
-              {result.sel.ovenTime&&<span style={{fontSize:11,color:P.muted}}>⏱ {result.sel.ovenTime} 分鐘</span>}
+
               {parseFloat(result.wastePct)>0&&<span style={{fontSize:11,color:P.muted}}>📦 含 {result.wastePct}% 耗損</span>}
             </div>
           </div>
@@ -230,7 +229,7 @@ function AdminView({ recipes, cats, save, saveCat }) {
   return (
     <div style={{maxWidth:680,margin:"0 auto",padding:"36px 18px 80px"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
-        <PageHeader sub="RECIPE MANAGEMENT" title="食譜後台" small/>
+        <PageHeader sub="管理所有配方" title="配方後台" small/>
         <div style={{display:"flex",gap:8}}>
           <Btn v="s" onClick={()=>setShowCatMgr(x=>!x)}>⚙ 管理類型</Btn>
           <Btn v="p" onClick={startNew}>＋ 新增食譜</Btn>
@@ -261,7 +260,7 @@ function AdminView({ recipes, cats, save, saveCat }) {
                   <STag>{r.category}</STag><STag blue>{mL[r.mode]}</STag>
                   <span style={{fontSize:15,fontWeight:600}}>{r.name||"（未命名）"}</span>
                 </div>
-                <div style={{fontSize:12,color:P.muted}}>{r.ingredients.filter(i=>i.name).length}種食材{r.ovenTemp&&` · ${r.ovenTemp}°C`}{r.ovenTime&&` / ${r.ovenTime}min`}{parseFloat(r.wastePct)>0&&` · 耗損${r.wastePct}%`}</div>
+                <div style={{fontSize:12,color:P.muted}}>{r.ingredients.filter(i=>i.name).length}種食材{parseFloat(r.wastePct)>0&&` · 耗損${r.wastePct}%`}</div>
               </div>
               <div style={{display:"flex",gap:6,flexShrink:0}}>
                 <Btn v="s" onClick={()=>startEdit(r)}>編輯</Btn>
@@ -334,10 +333,7 @@ function RecipeEditor({ recipe, cats, onSave, onCancel }) {
         </div>
         <DashBtn onClick={addIng}>＋ 新增食材</DashBtn>
       </Sec>
-      <Sec title="烤箱設定"><G2>
-        <Fld label="溫度 (°C)"><input type="number" style={iCss} placeholder="例：180" value={f.ovenTemp} onChange={e=>set("ovenTemp",e.target.value)}/></Fld>
-        <Fld label="時間（分鐘）"><input type="number" style={iCss} placeholder="例：25" value={f.ovenTime} onChange={e=>set("ovenTime",e.target.value)}/></Fld>
-      </G2></Sec>
+
       <Sec title="製作步驟">
         <div style={{display:"flex",flexDirection:"column",gap:7,marginBottom:10}}>
           {f.steps.map((s,i)=>(
