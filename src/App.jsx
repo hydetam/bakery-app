@@ -33,7 +33,11 @@ const UNITS = ["g", "kg", "ml", "L", "茶匙", "湯匙", "顆", "片", "適量"]
 function fmt(n) { if (isNaN(n)) return "—"; return n % 1 === 0 ? String(n) : n.toFixed(1); }
 function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 5); }
 function emptyRecipe(cats) {
-  return { id: newId(), category: cats[0]||"麵包", name: "", mode: "fixed", pieceWeight: "", baseQty: 1, baseUnit: "顆", wastePct: 0, ingredients: [{ id: newId(), name: "", amount: "", unit: "g", pct: "" }], steps: [""], ovenTemp: "", ovenTime: "", notes: "" };
+  return { id: newId(), category: cats[0]||"麵包", name: "", mode: "fixed", pieceWeight: "", baseQty: 1, baseUnit: "顆", wastePct: 0, ingredients: [{ id: newId(), name: "", amount: "", unit: "g", pct: "" }], subRecipes: [], steps: [""], notes: "" };
+}
+
+function emptySubRecipe() {
+  return { id: newId(), name: "", mode: "fixed", pieceWeight: "", wastePct: 0, ingredients: [{ id: newId(), name: "", amount: "", unit: "g", pct: "" }] };
 }
 
 const P = { bg:"#0d0c09", card:"#181410", border:"rgba(215,178,88,0.15)", gold:"#d4a83a", goldLight:"#eacc70", goldDim:"rgba(212,168,58,0.14)", muted:"#685a36", text:"#f0e8ce", soft:"#bfad82", red:"#c06060", redDim:"rgba(200,80,80,0.13)" };
@@ -115,32 +119,43 @@ function CalcView({ recipes }) {
   const [cat, setCat] = useState("");
   const [rid, setRid] = useState("");
   const [qty, setQty] = useState("");
+  const [selectedSubId, setSelectedSubId] = useState(null);
   const [result, setResult] = useState(null);
   const [stepsOpen, setStepsOpen] = useState(false);
   const allCats = [...new Set(recipes.map(r=>r.category))];
   const filtered = recipes.filter(r=>r.category===cat);
   const sel = recipes.find(r=>r.id===rid);
 
+  function calcRows(mode, ingredients, pieceWeight, baseQty, n, waste) {
+    if (mode==="fixed") {
+      const ratio=n/(baseQty||1)*waste;
+      return ingredients.filter(i=>i.name).map(i=>({ name:i.name, base:i.unit==="適量"?"適量":(i.amount?`${i.amount} ${i.unit}`:"—"), result:i.unit==="適量"?"適量":(isNaN(parseFloat(i.amount))?"—":`${fmt(parseFloat(i.amount)*ratio)} ${i.unit}`) }));
+    } else if (mode==="total") {
+      const totalG=(parseFloat(pieceWeight)||0)*n*waste;
+      return ingredients.filter(i=>i.name).map(i=>{const p=parseFloat(i.pct);return{name:i.name,base:`${isNaN(p)?"—":p}%`,result:i.unit==="適量"?"適量":(isNaN(p)?"—":`${fmt(totalG*p/100)} g`)};});
+    } else {
+      const totalDough=(parseFloat(pieceWeight)||0)*n*waste;
+      const pctSum=ingredients.filter(i=>i.name).reduce((a,i)=>{const p=parseFloat(i.pct);return a+(isNaN(p)?0:p);},0);
+      const flourG=pctSum>0?totalDough*100/pctSum:0;
+      return ingredients.filter(i=>i.name).map(i=>{const p=parseFloat(i.pct);const g=isNaN(p)?null:flourG*p/100;return{name:i.name,base:`${isNaN(p)?"—":p}%`,result:i.unit==="適量"?"適量":(g===null?"—":`${fmt(g)} g`)};});
+    }
+  }
+
   function calculate() {
     if (!sel||!qty||parseFloat(qty)<=0) return;
     const n=parseFloat(qty), waste=1+(parseFloat(sel.wastePct)||0)/100;
-    let rows=[];
-    if (sel.mode==="fixed") {
-      const ratio=n/(sel.baseQty||1)*waste;
-      rows=sel.ingredients.filter(i=>i.name).map(i=>({ name:i.name, base:i.unit==="適量"?"適量":(i.amount?`${i.amount} ${i.unit}`:"—"), result:i.unit==="適量"?"適量":(isNaN(parseFloat(i.amount))?"—":`${fmt(parseFloat(i.amount)*ratio)} ${i.unit}`) }));
-    } else if (sel.mode==="total") {
-      const totalG=(parseFloat(sel.pieceWeight)||0)*n*waste;
-      rows=sel.ingredients.filter(i=>i.name).map(i=>{const p=parseFloat(i.pct);return{name:i.name,base:`${isNaN(p)?"—":p}%`,result:i.unit==="適量"?"適量":(isNaN(p)?"—":`${fmt(totalG*p/100)} g`)};});
-    } else {
-      // 烘焙師比例：pieceWeight=每顆總重，反推麵粉量
-      // 總重 = pieceWeight × 數量 × 耗損
-      // 麵粉 = 總重 × 100 / 所有%加總
-      const totalDough = (parseFloat(sel.pieceWeight)||0) * n * waste;
-      const pctSum = sel.ingredients.filter(i=>i.name).reduce((a,i)=>{const p=parseFloat(i.pct);return a+(isNaN(p)?0:p);},0);
-      const flourG = pctSum > 0 ? totalDough * 100 / pctSum : 0;
-      rows=sel.ingredients.filter(i=>i.name).map(i=>{const p=parseFloat(i.pct);const g=isNaN(p)?null:flourG*p/100;return{name:i.name,base:`${isNaN(p)?"—":p}%`,result:i.unit==="適量"?"適量":(g===null?"—":`${fmt(g)} g`)};});
+    const rows=calcRows(sel.mode,sel.ingredients,sel.pieceWeight,sel.baseQty,n,waste);
+    // calc selected sub-recipe
+    let subRows=null, subName=null;
+    if (selectedSubId && (sel.subRecipes||[]).length>0) {
+      const sub=(sel.subRecipes||[]).find(s=>s.id===selectedSubId);
+      if (sub) {
+        const subWaste=1+(parseFloat(sub.wastePct)||0)/100;
+        subRows=calcRows(sub.mode,sub.ingredients,sub.pieceWeight,1,n,subWaste);
+        subName=sub.name||"配料";
+      }
     }
-    setResult({sel,qty:n,rows,waste,wastePct:sel.wastePct}); setStepsOpen(false);
+    setResult({sel,qty:n,rows,waste,wastePct:sel.wastePct,subRows,subName}); setStepsOpen(false);
   }
 
   const modeTag={fixed:"固定克數",total:"總量比例",baker:"烘焙師%"};
@@ -152,13 +167,21 @@ function CalcView({ recipes }) {
         {cat&&<CStep n={2} label="選擇品項" cls="fu">
           {filtered.length===0?<div style={{color:P.muted,fontSize:13}}>此類型尚無食譜</div>
             :<div style={{display:"flex",flexDirection:"column",gap:7}}>{filtered.map(r=>(
-              <button key={r.id} onClick={()=>{setRid(r.id);setQty("");setResult(null);}} style={{padding:"11px 15px",borderRadius:10,textAlign:"left",fontFamily:"inherit",cursor:"pointer",border:`1px solid ${rid===r.id?P.gold:P.border}`,background:rid===r.id?P.goldDim:"rgba(255,255,255,0.02)",color:P.text,fontSize:14,display:"flex",justifyContent:"space-between",alignItems:"center",transition:"all .18s"}}>
+              <button key={r.id} onClick={()=>{setRid(r.id);setQty("");setSelectedSubId(null);setResult(null);}} style={{padding:"11px 15px",borderRadius:10,textAlign:"left",fontFamily:"inherit",cursor:"pointer",border:`1px solid ${rid===r.id?P.gold:P.border}`,background:rid===r.id?P.goldDim:"rgba(255,255,255,0.02)",color:P.text,fontSize:14,display:"flex",justifyContent:"space-between",alignItems:"center",transition:"all .18s"}}>
                 <span style={{fontWeight:rid===r.id?600:400}}>{r.name}</span>
                 <span style={{fontSize:10,color:P.muted,background:"rgba(255,255,255,0.06)",padding:"2px 8px",borderRadius:100}}>{modeTag[r.mode]}</span>
               </button>
             ))}</div>}
         </CStep>}
-        {sel&&<CStep n={3} label={`製作數量（${sel.baseUnit}）`} cls="fu">
+        {sel&&(sel.subRecipes||[]).length>0&&<CStep n={3} label="選擇配料 ／ 餡料（可選）" cls="fu">
+          <div style={{display:"flex",flexWrap:"wrap",gap:7}}>
+            <button onClick={()=>setSelectedSubId(null)} style={{padding:"7px 14px",borderRadius:100,fontSize:13,border:`1px solid ${selectedSubId===null?P.gold:P.border}`,background:selectedSubId===null?P.goldDim:"transparent",color:selectedSubId===null?P.goldLight:P.soft,cursor:"pointer",fontFamily:"inherit",transition:"all .18s"}}>不需要配料</button>
+            {(sel.subRecipes||[]).map(sub=>(
+              <button key={sub.id} onClick={()=>setSelectedSubId(sub.id)} style={{padding:"7px 14px",borderRadius:100,fontSize:13,border:`1px solid ${selectedSubId===sub.id?P.gold:P.border}`,background:selectedSubId===sub.id?P.goldDim:"transparent",color:selectedSubId===sub.id?P.goldLight:P.soft,cursor:"pointer",fontFamily:"inherit",transition:"all .18s"}}>{sub.name||"配料"}</button>
+            ))}
+          </div>
+        </CStep>}
+        {sel&&<CStep n={(sel.subRecipes||[]).length>0?4:3} label={`製作數量（${sel.baseUnit}）`} cls="fu">
           {sel.mode!=="fixed"&&sel.pieceWeight&&<div style={{fontSize:12,color:P.muted,marginBottom:10,padding:"8px 12px",background:P.goldDim,borderRadius:7,lineHeight:1.5}}>{sel.mode==="total"?`每${sel.baseUnit}總重 ${sel.pieceWeight}g，各食材按比例分配`:`每${sel.baseUnit}總重 ${sel.pieceWeight}g，系統自動反推麵粉量再按烘焙師比例計算`}</div>}
           <div style={{display:"flex",gap:10,alignItems:"center"}}>
             <input type="number" min="1" style={{...iCss,fontSize:22,fontWeight:600,textAlign:"center",flex:1}} placeholder="例：25" value={qty} onChange={e=>{setQty(e.target.value);setResult(null);}} onKeyDown={e=>e.key==="Enter"&&calculate()}/>
@@ -186,6 +209,20 @@ function CalcView({ recipes }) {
               </div>
             ))}
           </div>
+          {result.subRows&&<>
+            <div style={{padding:"10px 18px",background:"rgba(212,168,58,0.08)",borderTop:`1px solid ${P.border}`,borderBottom:`1px solid ${P.border}`}}>
+              <span style={{fontSize:11,color:P.gold,letterSpacing:".15em"}}>配料：{result.subName}</span>
+            </div>
+            <div style={{padding:"4px 0"}}>
+              {result.subRows.map((row,i)=>(
+                <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 90px 120px",padding:"10px 18px",alignItems:"center",borderBottom:i<result.subRows.length-1?`1px solid rgba(215,178,88,0.06)`:"none"}}>
+                  <span style={{fontSize:14}}>{row.name}</span>
+                  <span style={{textAlign:"right",fontSize:12,color:P.muted}}>{row.base}</span>
+                  <span style={{textAlign:"right",fontSize:15,fontWeight:600,color:P.goldLight}}>{row.result}</span>
+                </div>
+              ))}
+            </div>
+          </>}
           {result.sel.steps?.some(s=>s)&&<div style={{borderTop:`1px solid ${P.border}`}}>
             <button onClick={()=>setStepsOpen(x=>!x)} style={{width:"100%",padding:"12px 18px",background:"transparent",border:"none",color:P.gold,cursor:"pointer",fontFamily:"inherit",fontSize:13,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <span>📋 製作步驟 / 備註</span><span style={{fontSize:10}}>{stepsOpen?"▲ 收起":"▼ 展開"}</span>
@@ -291,6 +328,14 @@ function RecipeEditor({ recipe, cats, onSave, onCancel }) {
   ];
   const pctSum=isRatio?f.ingredients.reduce((a,i)=>{const p=parseFloat(i.pct);return a+(isNaN(p)?0:p);},0):0;
 
+  // Sub-recipe helpers
+  const addSub=()=>setF(p=>({...p,subRecipes:[...(p.subRecipes||[]),emptySubRecipe()]}));
+  const removeSub=id=>setF(p=>({...p,subRecipes:p.subRecipes.filter(s=>s.id!==id)}));
+  const setSub=(id,k,v)=>setF(p=>({...p,subRecipes:p.subRecipes.map(s=>s.id===id?{...s,[k]:v}:s)}));
+  const addSubIng=sid=>setF(p=>({...p,subRecipes:p.subRecipes.map(s=>s.id===sid?{...s,ingredients:[...s.ingredients,{id:newId(),name:"",amount:"",unit:"g",pct:""}]}:s)}));
+  const removeSubIng=(sid,iid)=>setF(p=>({...p,subRecipes:p.subRecipes.map(s=>s.id===sid?{...s,ingredients:s.ingredients.filter(i=>i.id!==iid)}:s)}));
+  const setSubIng=(sid,iid,k,v)=>setF(p=>({...p,subRecipes:p.subRecipes.map(s=>s.id===sid?{...s,ingredients:s.ingredients.map(i=>i.id===iid?{...i,[k]:v}:i)}:s)}));
+
   return (
     <div style={{maxWidth:620,margin:"0 auto",padding:"36px 18px 80px"}}>
       <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:28}}>
@@ -333,6 +378,54 @@ function RecipeEditor({ recipe, cats, onSave, onCancel }) {
         </div>
         <DashBtn onClick={addIng}>＋ 新增食材</DashBtn>
       </Sec>
+
+      {/* Sub-recipes collapsible section */}
+      <div style={{marginBottom:22}}>
+        <button onClick={addSub} style={{width:"100%",padding:"11px 16px",background:"transparent",border:`1px dashed ${P.border}`,borderRadius:11,color:P.gold,cursor:"pointer",fontFamily:"inherit",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+          ＋ 新增配料 ／ 餡料子配方
+        </button>
+        {(f.subRecipes||[]).map((sub,si)=>{
+          const subIsRatio=sub.mode!=="fixed";
+          const subPctSum=subIsRatio?sub.ingredients.reduce((a,i)=>{const p=parseFloat(i.pct);return a+(isNaN(p)?0:p);},0):0;
+          return(
+          <div key={sub.id} style={{marginTop:10,background:P.card,border:`1px solid ${P.borderActive||"rgba(215,178,88,0.35)"}`,borderRadius:11,overflow:"hidden"}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",borderBottom:`1px solid ${P.border}`}}>
+              <span style={{fontSize:11,color:P.gold,letterSpacing:".1em"}}>子配方 {si+1}</span>
+              <input style={{...iCss,flex:1,padding:"6px 10px",fontSize:13}} placeholder="名稱（如：卡士達餡、草莓醬）" value={sub.name} onChange={e=>setSub(sub.id,"name",e.target.value)}/>
+              <button onClick={()=>removeSub(sub.id)} style={{width:28,height:28,borderRadius:6,flexShrink:0,background:P.redDim,border:`1px solid rgba(200,80,80,.2)`,color:P.red,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+            </div>
+            <div style={{padding:"12px 14px"}}>
+              {/* Mode */}
+              <div style={{marginBottom:12}}>
+                <label style={{...lCss,marginBottom:8}}>計算模式</label>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  {[["fixed","固定克數"],["total","總量比例"],["baker","烘焙師%"]].map(([val,label])=>(
+                    <button key={val} onClick={()=>setSub(sub.id,"mode",val)} style={{padding:"5px 12px",borderRadius:100,fontSize:12,border:`1px solid ${sub.mode===val?P.gold:P.border}`,background:sub.mode===val?P.goldDim:"transparent",color:sub.mode===val?P.goldLight:P.soft,cursor:"pointer",fontFamily:"inherit",transition:"all .18s"}}>{label}</button>
+                  ))}
+                </div>
+              </div>
+              {/* Piece weight for ratio modes */}
+              {subIsRatio&&<div style={{marginBottom:12}}><label style={lCss}>{sub.mode==="total"?"每份總重 (g)":"每份成品總重 (g)"}</label><input type="number" style={iCss} placeholder="例：30" value={sub.pieceWeight||""} onChange={e=>setSub(sub.id,"pieceWeight",e.target.value)}/></div>}
+              {/* Waste */}
+              <div style={{marginBottom:12}}><label style={lCss}>耗損率 (%)</label><input type="number" min="0" max="50" step="0.5" style={iCss} placeholder="0" value={sub.wastePct||0} onChange={e=>setSub(sub.id,"wastePct",e.target.value)}/></div>
+              {/* Ingredients */}
+              <label style={lCss}>{subIsRatio?"食材比例":"食材用量"}</label>
+              {subIsRatio&&subPctSum>0&&<div style={{fontSize:11,color:subPctSum>101||(subPctSum<99)?P.red:P.muted,marginBottom:8}}>目前合計：{subPctSum.toFixed(1)}%</div>}
+              <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:8}}>
+                {sub.ingredients.map((ing,idx)=>(
+                  <div key={ing.id} style={{display:"flex",gap:6,alignItems:"center"}}>
+                    <input style={{...iCss,flex:2,padding:"6px 9px",fontSize:13}} placeholder={`食材 ${idx+1}`} value={ing.name} onChange={e=>setSubIng(sub.id,ing.id,"name",e.target.value)}/>
+                    {!subIsRatio?<><input type="number" style={{...iCss,width:76,padding:"6px 8px",textAlign:"right",fontSize:13}} placeholder="用量" value={ing.amount} onChange={e=>setSubIng(sub.id,ing.id,"amount",e.target.value)}/><select style={{...iCss,width:72,padding:"6px 4px",fontSize:12}} value={ing.unit} onChange={e=>setSubIng(sub.id,ing.id,"unit",e.target.value)}>{UNITS.map(u=><option key={u}>{u}</option>)}</select></>
+                    :<><input type="number" style={{...iCss,width:80,padding:"6px 8px",textAlign:"right",fontSize:13}} placeholder="%" value={ing.pct} onChange={e=>setSubIng(sub.id,ing.id,"pct",e.target.value)}/><span style={{color:P.muted,fontSize:12}}>%</span></>}
+                    <button onClick={()=>removeSubIng(sub.id,ing.id)} style={{width:26,height:26,borderRadius:6,flexShrink:0,background:P.redDim,border:`1px solid rgba(200,80,80,.2)`,color:P.red,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+                  </div>
+                ))}
+              </div>
+              <DashBtn onClick={()=>addSubIng(sub.id)}>＋ 新增食材</DashBtn>
+            </div>
+          </div>
+        );})}
+      </div>
 
       <Sec title="製作步驟">
         <div style={{display:"flex",flexDirection:"column",gap:7,marginBottom:10}}>
