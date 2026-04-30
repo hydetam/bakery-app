@@ -39,7 +39,7 @@ function emptyRecipe(cats) {
 }
 
 function emptySubRecipe() {
-  return { id: newId(), name: "", mode: "fixed", wastePct: 0, isDefault: false, ingredients: [{ id: newId(), name: "", amount: "", unit: "g", pct: "" }] };
+  return { id: newId(), name: "", mode: "fixed", pieceWeight: "", wastePct: 0, isDefault: false, ingredients: [{ id: newId(), name: "", amount: "", unit: "g", pct: "" }] };
 }
 
 const P = { bg:"#0d0c09", card:"#181410", border:"rgba(215,178,88,0.15)", gold:"#d4a83a", goldLight:"#eacc70", goldDim:"rgba(212,168,58,0.14)", muted:"#685a36", text:"#f0e8ce", soft:"#bfad82", red:"#c06060", redDim:"rgba(200,80,80,0.13)" };
@@ -153,7 +153,7 @@ function CalcView({ recipes }) {
       const sub=(sel.subRecipes||[]).find(s=>s.id===selectedSubId);
       if (sub) {
         const subWaste=1+(parseFloat(sub.wastePct)||0)/100;
-        subRows=calcRows(sub.mode,sub.ingredients,sel.pieceWeight,sel.baseQty,n,subWaste);
+        subRows=calcRows(sub.mode,sub.ingredients,sub.pieceWeight||sel.pieceWeight,sel.baseQty,n,subWaste);
         subName=sub.name||"配料";
       }
     }
@@ -411,7 +411,11 @@ function RecipeEditor({ recipe, cats, onSave, onCancel }) {
                 </div>
               </div>
               {/* Piece weight for ratio modes */}
-              {subIsRatio&&<div style={{fontSize:11,color:P.muted,marginBottom:12,padding:"7px 10px",background:P.goldDim,borderRadius:7}}>每份總重自動沿用主配方設定</div>}
+              {subIsRatio&&<div style={{marginBottom:12}}>
+                <label style={lCss}>{sub.mode==="total"?"每份子配方總重 (g)":"每份子配方成品總重 (g)"}</label>
+                <input type="number" min="1" style={iCss} placeholder="例：30" value={sub.pieceWeight||""} onChange={e=>setSub(sub.id,"pieceWeight",e.target.value)}/>
+                <div style={{fontSize:11,color:P.muted,marginTop:4}}>配一份主配方（{f.baseQty}{f.baseUnit}）所需的子配方重量</div>
+              </div>}
               {/* Waste */}
               <div style={{marginBottom:12}}><label style={lCss}>耗損率 (%)</label><input type="number" min="0" max="50" step="0.5" style={iCss} placeholder="0" value={sub.wastePct||0} onChange={e=>setSub(sub.id,"wastePct",e.target.value)}/></div>
               {/* Ingredients */}
