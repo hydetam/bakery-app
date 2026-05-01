@@ -39,11 +39,11 @@ function emptyRecipe(cats) {
 }
 
 function emptySubRecipe() {
-  return { id: newId(), name: "", mode: "fixed", pieceWeight: "", wastePct: 0, isDefault: false, ingredients: [{ id: newId(), name: "", amount: "", unit: "g", pct: "" }] };
+  return { id: newId(), name: "", mode: "fixed", pieceWeight: "", wastePct: 0, isDefault: false, selectionType: "optional", ingredients: [{ id: newId(), name: "", amount: "", unit: "g", pct: "" }] };
 }
 
-const P = { bg:"#0d0c09", card:"#181410", border:"rgba(215,178,88,0.15)", gold:"#d4a83a", goldLight:"#eacc70", goldDim:"rgba(212,168,58,0.14)", muted:"#685a36", text:"#f0e8ce", soft:"#bfad82", red:"#c06060", redDim:"rgba(200,80,80,0.13)" };
-const iCss = { width:"100%", background:"rgba(255,255,255,0.04)", border:`1px solid ${P.border}`, borderRadius:8, color:P.text, padding:"9px 12px", fontSize:14, fontFamily:"inherit", outline:"none", boxSizing:"border-box" };
+const P = { bg:"#faf6f0", card:"#ffffff", border:"rgba(180,140,80,0.22)", gold:"#b5813a", goldLight:"#8a5e1e", goldDim:"rgba(181,129,58,0.1)", muted:"#a08060", text:"#2d1f0e", soft:"#5a3e22", red:"#c0392b", redDim:"rgba(192,57,43,0.1)" };
+const iCss = { width:"100%", background:"#fff", border:`1px solid ${P.border}`, borderRadius:8, color:P.text, padding:"9px 12px", fontSize:14, fontFamily:"inherit", outline:"none", boxSizing:"border-box", boxShadow:"inset 0 1px 3px rgba(0,0,0,0.04)" };
 const lCss = { display:"block", fontSize:10, letterSpacing:".22em", color:P.gold, textTransform:"uppercase", marginBottom:6 };
 
 const Btn = ({ v="p", onClick, children, style={} }) => (
@@ -77,9 +77,9 @@ export default function App() {
   return (
     <div style={{ minHeight:"100vh", background:P.bg, color:P.text, fontFamily:"'Noto Serif TC','Georgia',serif" }}>
       <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;600;700&display=swap" rel="stylesheet"/>
-      <style>{`*{box-sizing:border-box} input::placeholder,textarea::placeholder{color:${P.muted}} select option{background:#181410} ::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-thumb{background:${P.muted};border-radius:4px} @keyframes fu{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}} .fu{animation:fu .28s ease both} input[type=number]::-webkit-inner-spin-button{opacity:.35} @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}} .shake{animation:shake .35s ease}`}</style>
+      <style>{`*{box-sizing:border-box} input::placeholder,textarea::placeholder{color:${P.muted}} select option{background:#ffffff;color:#2d1f0e} ::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-thumb{background:${P.muted};border-radius:4px} @keyframes fu{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}} .fu{animation:fu .28s ease both} input[type=number]::-webkit-inner-spin-button{opacity:.35} @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}} .shake{animation:shake .35s ease}`}</style>
 
-      <nav style={{ position:"sticky",top:0,zIndex:100,height:52,background:"rgba(13,12,9,.94)",backdropFilter:"blur(14px)",borderBottom:`1px solid ${P.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 18px" }}>
+      <nav style={{ position:"sticky",top:0,zIndex:100,height:52,background:"rgba(250,246,240,0.96)",backdropFilter:"blur(14px)",borderBottom:`1px solid ${P.border}`,boxShadow:"0 1px 8px rgba(180,140,80,0.1)",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 18px" }}>
         <span style={{ fontSize:15,fontWeight:700,color:P.goldLight,letterSpacing:".08em" }}>⚖️ 配方計算機</span>
         <div style={{ display:"flex",gap:2,alignItems:"center" }}>
           {saving&&<span style={{fontSize:11,color:P.muted,marginRight:8}}>儲存中…</span>}
@@ -122,6 +122,7 @@ function CalcView({ recipes }) {
   const [rid, setRid] = useState("");
   const [qty, setQty] = useState("");
   const [selectedSubId, setSelectedSubId] = useState(null);
+  const [selectedMultiIds, setSelectedMultiIds] = useState(new Set());
   const [result, setResult] = useState(null);
   const [stepsOpen, setStepsOpen] = useState(false);
   const allCats = [...new Set(recipes.map(r=>r.category))];
@@ -148,16 +149,16 @@ function CalcView({ recipes }) {
     const n=parseFloat(qty), waste=1+(parseFloat(sel.wastePct)||0)/100;
     const rows=calcRows(sel.mode,sel.ingredients,sel.pieceWeight,sel.baseQty,n,waste);
     // calc selected sub-recipe
-    let subRows=null, subName=null;
-    if (selectedSubId && (sel.subRecipes||[]).length>0) {
+    const subResults=[];
+    if (selectedSubId) {
       const sub=(sel.subRecipes||[]).find(s=>s.id===selectedSubId);
-      if (sub) {
-        const subWaste=1+(parseFloat(sub.wastePct)||0)/100;
-        subRows=calcRows(sub.mode,sub.ingredients,sub.pieceWeight||sel.pieceWeight,sel.baseQty,n,subWaste);
-        subName=sub.name||"配料";
-      }
+      if (sub) { const sw=1+(parseFloat(sub.wastePct)||0)/100; subResults.push({name:sub.name||"配料",rows:calcRows(sub.mode,sub.ingredients,sub.pieceWeight||sel.pieceWeight,sel.baseQty,n,sw)}); }
     }
-    setResult({sel,qty:n,rows,waste,wastePct:sel.wastePct,subRows,subName}); setStepsOpen(false);
+    selectedMultiIds.forEach(sid=>{
+      const sub=(sel.subRecipes||[]).find(s=>s.id===sid);
+      if (sub) { const sw=1+(parseFloat(sub.wastePct)||0)/100; subResults.push({name:sub.name||"配料",rows:calcRows(sub.mode,sub.ingredients,sub.pieceWeight||sel.pieceWeight,sel.baseQty,n,sw)}); }
+    });
+    setResult({sel,qty:n,rows,waste,wastePct:sel.wastePct,subResults}); setStepsOpen(false);
   }
 
   const modeTag={fixed:"固定克數",total:"總量比例",baker:"烘焙師%"};
@@ -169,21 +170,53 @@ function CalcView({ recipes }) {
         {cat&&<CStep n={2} label="選擇品項" cls="fu">
           {filtered.length===0?<div style={{color:P.muted,fontSize:13}}>此類型尚無食譜</div>
             :<div style={{display:"flex",flexDirection:"column",gap:7}}>{filtered.map(r=>(
-              <button key={r.id} onClick={()=>{const defSub=(r.subRecipes||[]).find(s=>s.isDefault); setRid(r.id);setQty("");setSelectedSubId(defSub?defSub.id:null);setResult(null);}} style={{padding:"11px 15px",borderRadius:10,textAlign:"left",fontFamily:"inherit",cursor:"pointer",border:`1px solid ${rid===r.id?P.gold:P.border}`,background:rid===r.id?P.goldDim:"rgba(255,255,255,0.02)",color:P.text,fontSize:14,display:"flex",justifyContent:"space-between",alignItems:"center",transition:"all .18s"}}>
+              <button key={r.id} onClick={()=>{const defSub=(r.subRecipes||[]).find(s=>s.isDefault&&s.selectionType!=="multi"); const defMulti=new Set((r.subRecipes||[]).filter(s=>s.isDefault&&s.selectionType==="multi").map(s=>s.id)); setRid(r.id);setQty("");setSelectedSubId(defSub?defSub.id:null);setSelectedMultiIds(defMulti);setResult(null);}} style={{padding:"11px 15px",borderRadius:10,textAlign:"left",fontFamily:"inherit",cursor:"pointer",border:`1px solid ${rid===r.id?P.gold:P.border}`,background:rid===r.id?P.goldDim:"rgba(255,255,255,0.02)",color:P.text,fontSize:14,display:"flex",justifyContent:"space-between",alignItems:"center",transition:"all .18s"}}>
                 <span style={{fontWeight:rid===r.id?600:400}}>{r.name}</span>
                 <span style={{fontSize:10,color:P.muted,background:"rgba(255,255,255,0.06)",padding:"2px 8px",borderRadius:100}}>{modeTag[r.mode]}</span>
               </button>
             ))}</div>}
         </CStep>}
-        {sel&&(sel.subRecipes||[]).length>0&&<CStep n={3} label="選擇配料 ／ 餡料（可選）" cls="fu">
-          <div style={{display:"flex",flexWrap:"wrap",gap:7}}>
-            <button onClick={()=>setSelectedSubId(null)} style={{padding:"7px 14px",borderRadius:100,fontSize:13,border:`1px solid ${selectedSubId===null?P.gold:P.border}`,background:selectedSubId===null?P.goldDim:"transparent",color:selectedSubId===null?P.goldLight:P.soft,cursor:"pointer",fontFamily:"inherit",transition:"all .18s"}}>不需要配料</button>
-            {(sel.subRecipes||[]).map(sub=>(
-              <button key={sub.id} onClick={()=>setSelectedSubId(sub.id)} style={{padding:"7px 14px",borderRadius:100,fontSize:13,border:`1px solid ${selectedSubId===sub.id?P.gold:P.border}`,background:selectedSubId===sub.id?P.goldDim:"transparent",color:selectedSubId===sub.id?P.goldLight:P.soft,cursor:"pointer",fontFamily:"inherit",transition:"all .18s"}}>{sub.isDefault?"★ ":""}{sub.name||"配料"}</button>
-            ))}
-          </div>
-        </CStep>}
-        {sel&&<CStep n={(sel.subRecipes||[]).length>0?4:3} label={`製作數量（${sel.baseUnit}）`} cls="fu">
+        {sel&&(()=>{
+          const reqSubs=(sel.subRecipes||[]).filter(s=>s.selectionType==="required");
+          const optSubs=(sel.subRecipes||[]).filter(s=>!s.selectionType||s.selectionType==="optional");
+          const multiSubs=(sel.subRecipes||[]).filter(s=>s.selectionType==="multi");
+          return(<>
+            {reqSubs.length>0&&<CStep n={3} label="必選配料（請選一項）" cls="fu">
+              <div style={{display:"flex",flexWrap:"wrap",gap:7}}>
+                {reqSubs.map(sub=>(
+                  <button key={sub.id} onClick={()=>setSelectedSubId(sub.id)} style={{padding:"7px 14px",borderRadius:100,fontSize:13,border:`1px solid ${selectedSubId===sub.id?P.gold:P.border}`,background:selectedSubId===sub.id?P.goldDim:"transparent",color:selectedSubId===sub.id?P.gold:P.soft,cursor:"pointer",fontFamily:"inherit",transition:"all .18s"}}>
+                    {sub.isDefault?"★ ":""}{sub.name||"配料"}
+                  </button>
+                ))}
+              </div>
+              {!selectedSubId&&reqSubs.length>0&&<div style={{fontSize:11,color:P.red,marginTop:6}}>⚠ 請選擇一項</div>}
+            </CStep>}
+            {optSubs.length>0&&<CStep n={3+(reqSubs.length>0?1:0)} label="配料（可選）" cls="fu">
+              <div style={{display:"flex",flexWrap:"wrap",gap:7}}>
+                <button onClick={()=>setSelectedSubId(null)} style={{padding:"7px 14px",borderRadius:100,fontSize:13,border:`1px solid ${selectedSubId===null?P.gold:P.border}`,background:selectedSubId===null?P.goldDim:"transparent",color:selectedSubId===null?P.gold:P.soft,cursor:"pointer",fontFamily:"inherit",transition:"all .18s"}}>不需要</button>
+                {optSubs.map(sub=>(
+                  <button key={sub.id} onClick={()=>setSelectedSubId(sub.id)} style={{padding:"7px 14px",borderRadius:100,fontSize:13,border:`1px solid ${selectedSubId===sub.id?P.gold:P.border}`,background:selectedSubId===sub.id?P.goldDim:"transparent",color:selectedSubId===sub.id?P.gold:P.soft,cursor:"pointer",fontFamily:"inherit",transition:"all .18s"}}>
+                    {sub.isDefault?"★ ":""}{sub.name||"配料"}
+                  </button>
+                ))}
+              </div>
+            </CStep>}
+            {multiSubs.length>0&&<CStep n={3+(reqSubs.length>0?1:0)+(optSubs.length>0?1:0)} label="加選配料（可多選）" cls="fu">
+              <div style={{display:"flex",flexWrap:"wrap",gap:7}}>
+                {multiSubs.map(sub=>{
+                  const chk=selectedMultiIds.has(sub.id);
+                  return(
+                    <button key={sub.id} onClick={()=>setSelectedMultiIds(prev=>{const n=new Set(prev);chk?n.delete(sub.id):n.add(sub.id);return n;})} style={{padding:"7px 14px",borderRadius:100,fontSize:13,border:`1px solid ${chk?P.gold:P.border}`,background:chk?P.goldDim:"transparent",color:chk?P.gold:P.soft,cursor:"pointer",fontFamily:"inherit",transition:"all .18s",display:"flex",alignItems:"center",gap:5}}>
+                      <span style={{width:14,height:14,borderRadius:3,border:`1px solid ${chk?P.gold:P.muted}`,background:chk?P.gold:"transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,color:"#fff",flexShrink:0}}>{chk?"✓":""}</span>
+                      {sub.isDefault?"★ ":""}{sub.name||"配料"}
+                    </button>
+                  );
+                })}
+              </div>
+            </CStep>}
+          </>);
+        })()}
+        {sel&&<CStep n={(sel.subRecipes||[]).length>0?((sel.subRecipes||[]).filter(s=>s.selectionType==="required").length>0?1:0)+((sel.subRecipes||[]).filter(s=>!s.selectionType||s.selectionType==="optional").length>0?1:0)+((sel.subRecipes||[]).filter(s=>s.selectionType==="multi").length>0?1:0)+3:3} label={`製作數量（${sel.baseUnit}）`} cls="fu">
           {sel.mode!=="fixed"&&sel.pieceWeight&&<div style={{fontSize:12,color:P.muted,marginBottom:10,padding:"8px 12px",background:P.goldDim,borderRadius:7,lineHeight:1.5}}>{sel.mode==="total"?`每${sel.baseUnit}總重 ${sel.pieceWeight}g，各食材按比例分配`:`每${sel.baseUnit}總重 ${sel.pieceWeight}g，系統自動反推麵粉量再按烘焙師比例計算`}</div>}
           <div style={{display:"flex",gap:10,alignItems:"center"}}>
             <input type="number" min="1" style={{...iCss,fontSize:22,fontWeight:600,textAlign:"center",flex:1}} placeholder="例：25" value={qty} onChange={e=>{setQty(e.target.value);setResult(null);}} onKeyDown={e=>e.key==="Enter"&&calculate()}/>
@@ -211,20 +244,22 @@ function CalcView({ recipes }) {
               </div>
             ))}
           </div>
-          {result.subRows&&<>
-            <div style={{padding:"10px 18px",background:"rgba(212,168,58,0.08)",borderTop:`1px solid ${P.border}`,borderBottom:`1px solid ${P.border}`}}>
-              <span style={{fontSize:11,color:P.gold,letterSpacing:".15em"}}>配料：{result.subName}</span>
+          {result.subResults&&result.subResults.length>0&&result.subResults.map((sr,si)=>(
+            <div key={si}>
+              <div style={{padding:"10px 18px",background:P.goldDim,borderTop:`1px solid ${P.border}`,borderBottom:`1px solid ${P.border}`}}>
+                <span style={{fontSize:11,color:P.gold,letterSpacing:".15em",fontWeight:600}}>配料：{sr.name}</span>
+              </div>
+              <div style={{padding:"4px 0"}}>
+                {sr.rows.map((row,i)=>(
+                  <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 90px 120px",padding:"10px 18px",alignItems:"center",borderBottom:i<sr.rows.length-1?`1px solid ${P.border}`:"none"}}>
+                    <span style={{fontSize:14,color:P.text}}>{row.name}</span>
+                    <span style={{textAlign:"right",fontSize:12,color:P.muted}}>{row.base}</span>
+                    <span style={{textAlign:"right",fontSize:15,fontWeight:600,color:P.gold}}>{row.result}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div style={{padding:"4px 0"}}>
-              {result.subRows.map((row,i)=>(
-                <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 90px 120px",padding:"10px 18px",alignItems:"center",borderBottom:i<result.subRows.length-1?`1px solid rgba(215,178,88,0.06)`:"none"}}>
-                  <span style={{fontSize:14}}>{row.name}</span>
-                  <span style={{textAlign:"right",fontSize:12,color:P.muted}}>{row.base}</span>
-                  <span style={{textAlign:"right",fontSize:15,fontWeight:600,color:P.goldLight}}>{row.result}</span>
-                </div>
-              ))}
-            </div>
-          </>}
+          ))}
           {result.sel.steps?.some(s=>s)&&<div style={{borderTop:`1px solid ${P.border}`}}>
             <button onClick={()=>setStepsOpen(x=>!x)} style={{width:"100%",padding:"12px 18px",background:"transparent",border:"none",color:P.gold,cursor:"pointer",fontFamily:"inherit",fontSize:13,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <span>📋 製作步驟 / 備註</span><span style={{fontSize:10}}>{stepsOpen?"▲ 收起":"▼ 展開"}</span>
@@ -296,7 +331,7 @@ function AdminView({ recipes, cats, save, saveCat }) {
       {shown.length===0?<Empty icon="📭" text="尚無食譜" sub="點擊「新增食譜」開始建立"/>
         :<div style={{display:"flex",flexDirection:"column",gap:8}}>
           {shown.map(r=>(
-            <div key={r.id} style={{background:P.card,border:`1px solid ${P.border}`,borderRadius:11,padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12}}>
+            <div key={r.id} style={{background:P.card,border:`1px solid ${P.border}`,borderRadius:11,padding:"14px 16px",boxShadow:"0 1px 6px rgba(180,140,80,0.08)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12}}>
               <div>
                 <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:4,flexWrap:"wrap"}}>
                   <STag>{r.category}</STag><STag blue>{mL[r.mode]}</STag>
@@ -397,7 +432,11 @@ function RecipeEditor({ recipe, cats, onSave, onCancel }) {
             <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",borderBottom:`1px solid ${P.border}`}}>
               <span style={{fontSize:11,color:P.gold,letterSpacing:".1em"}}>子配方 {si+1}</span>
               <input style={{...iCss,flex:1,padding:"6px 10px",fontSize:13}} placeholder="名稱（如：卡士達餡、草莓醬）" value={sub.name} onChange={e=>setSub(sub.id,"name",e.target.value)}/>
-              <button onClick={()=>setF(p=>({...p,subRecipes:p.subRecipes.map(s=>({...s,isDefault:s.id===sub.id?!sub.isDefault:false}))}))} style={{padding:"4px 10px",borderRadius:100,fontSize:11,border:`1px solid ${sub.isDefault?P.gold:P.border}`,background:sub.isDefault?P.goldDim:"transparent",color:sub.isDefault?P.goldLight:P.muted,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>{sub.isDefault?"★ 預設":"☆ 設預設"}</button>
+              {/* selectionType selector */}
+              {[["optional","可選"],["required","必選"],["multi","多選"]].map(([val,label])=>(
+                <button key={val} onClick={()=>setSub(sub.id,"selectionType",val)} style={{padding:"3px 9px",borderRadius:100,fontSize:10,border:`1px solid ${(sub.selectionType||"optional")===val?P.gold:P.border}`,background:(sub.selectionType||"optional")===val?P.goldDim:"transparent",color:(sub.selectionType||"optional")===val?P.gold:P.muted,cursor:"pointer",fontFamily:"inherit"}}>{label}</button>
+              ))}
+              <button onClick={()=>setF(p=>({...p,subRecipes:p.subRecipes.map(s=>({...s,isDefault:s.id===sub.id?!sub.isDefault:false}))}))} style={{padding:"3px 9px",borderRadius:100,fontSize:10,border:`1px solid ${sub.isDefault?P.gold:P.border}`,background:sub.isDefault?P.goldDim:"transparent",color:sub.isDefault?P.gold:P.muted,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>{sub.isDefault?"★ 預設":"☆ 設預設"}</button>
               <button onClick={()=>removeSub(sub.id)} style={{width:28,height:28,borderRadius:6,flexShrink:0,background:P.redDim,border:`1px solid rgba(200,80,80,.2)`,color:P.red,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
             </div>
             <div style={{padding:"12px 14px"}}>
@@ -503,7 +542,7 @@ function StepImgUploader({ img, onImg, onClear }) {
 
 function PageHeader({sub,title,small}){return(<div style={{marginBottom:small?0:30}}><div style={{fontSize:10,letterSpacing:".26em",color:P.gold,marginBottom:6}}>{sub}</div><h2 style={{margin:0,fontSize:small?20:26,fontWeight:700,color:P.goldLight}}>{title}</h2>{!small&&<div style={{width:36,height:2,background:P.gold,marginTop:10}}/>}</div>);}
 function CStep({n,label,children,cls=""}){return(<div className={cls} style={{marginBottom:22}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}><span style={{width:22,height:22,borderRadius:"50%",background:P.goldDim,color:P.gold,fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{n}</span><span style={{...lCss,marginBottom:0}}>{label}</span></div>{children}</div>);}
-function Sec({title,children}){return(<div style={{marginBottom:22}}><div style={{fontSize:10,letterSpacing:".22em",color:P.gold,marginBottom:10}}>{title}</div><div style={{background:P.card,border:`1px solid ${P.border}`,borderRadius:11,padding:16}}>{children}</div></div>);}
+function Sec({title,children}){return(<div style={{marginBottom:22}}><div style={{fontSize:10,letterSpacing:".22em",color:P.gold,marginBottom:10}}>{title}</div><div style={{background:P.card,border:`1px solid ${P.border}`,borderRadius:11,padding:16,boxShadow:"0 1px 6px rgba(180,140,80,0.08)"}}>{children}</div></div>);}
 function Fld({label,children}){return<div><label style={lCss}>{label}</label>{children}</div>;}
 function G2({children}){return<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:14}}>{children}</div>;}
 function Chip({on,onClick,children,sm}){return<button onClick={onClick} style={{padding:sm?"4px 12px":"7px 16px",borderRadius:100,fontSize:sm?11:13,border:`1px solid ${on?P.gold:P.border}`,background:on?P.goldDim:"transparent",color:on?P.goldLight:P.soft,cursor:"pointer",fontFamily:"inherit",transition:"all .18s"}}>{children}</button>;}
