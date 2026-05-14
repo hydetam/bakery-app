@@ -269,7 +269,7 @@ function CalcView({ recipes }) {
                 <div key={i} style={{display:"flex",gap:10,marginBottom:9}}>
                   <span style={{minWidth:20,height:20,borderRadius:"50%",background:P.goldDim,color:P.gold,fontSize:10,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,flexShrink:0,marginTop:2}}>{i+1}</span>
                   <div>
-                    <span style={{fontSize:13,color:P.soft,lineHeight:1.65}}>{s.text||s}</span>
+                    <span style={{fontSize:13,color:P.soft,lineHeight:1.65,whiteSpace:"pre-wrap"}}>{s.text||s}</span>
                     {s.img&&<img src={s.img} alt="" onError={e=>e.target.style.display="none"} style={{display:"block",marginTop:8,width:"100%",maxWidth:300,borderRadius:8,border:`1px solid ${P.border}`,objectFit:"cover"}}/>}
                   </div>
                 </div>
