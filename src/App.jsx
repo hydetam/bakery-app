@@ -269,7 +269,7 @@ function CalcView({ recipes }) {
                 <div key={i} style={{display:"flex",gap:10,marginBottom:9}}>
                   <span style={{minWidth:20,height:20,borderRadius:"50%",background:P.goldDim,color:P.gold,fontSize:10,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,flexShrink:0,marginTop:2}}>{i+1}</span>
                   <div>
-                    <span style={{fontSize:13,color:P.soft,lineHeight:1.65,whiteSpace:"pre-wrap"}}>{s.text||s}</span>
+                    <span style={{fontSize:13,color:P.soft,lineHeight:1.65}}>{s.text||s}</span>
                     {s.img&&<img src={s.img} alt="" onError={e=>e.target.style.display="none"} style={{display:"block",marginTop:8,width:"100%",maxWidth:300,borderRadius:8,border:`1px solid ${P.border}`,objectFit:"cover"}}/>}
                   </div>
                 </div>
@@ -294,6 +294,10 @@ function AdminView({ recipes, cats, save, saveCat }) {
   const startEdit=r=>{setEditing(JSON.parse(JSON.stringify(r)));setMode("edit");};
   const handleSave=async rec=>{const upd=recipes.find(r=>r.id===rec.id)?recipes.map(r=>r.id===rec.id?rec:r):[...recipes,rec];await save(upd);setMode("list");};
   const handleDel=async id=>{if(!confirm("確定刪除此食譜？"))return;await save(recipes.filter(r=>r.id!==id));};
+  const handleDupe=async r=>{
+    const copy={...JSON.parse(JSON.stringify(r)),id:newId(),name:r.name+" - 副本"};
+    await save([...recipes,copy]);
+  };
   const addCat=async()=>{const v=catInput.trim();if(!v||cats.includes(v))return;await saveCat([...cats,v]);setCatInput("");};
   const removeCat=async c=>{if(!confirm(`刪除「${c}」類型？`))return;await saveCat(cats.filter(x=>x!==c));};
 
@@ -340,6 +344,7 @@ function AdminView({ recipes, cats, save, saveCat }) {
                 <div style={{fontSize:12,color:P.muted}}>{r.ingredients.filter(i=>i.name).length}種食材{parseFloat(r.wastePct)>0&&` · 耗損${r.wastePct}%`}</div>
               </div>
               <div style={{display:"flex",gap:6,flexShrink:0}}>
+                <Btn v="s" onClick={()=>handleDupe(r)} style={{color:P.gold,borderColor:`rgba(181,129,58,0.35)`}}>複製</Btn>
                 <Btn v="s" onClick={()=>startEdit(r)}>編輯</Btn>
                 <Btn v="s" onClick={()=>handleDel(r.id)} style={{color:P.red,borderColor:"rgba(200,80,80,.25)"}}>刪除</Btn>
               </div>
